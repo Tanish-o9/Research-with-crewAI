@@ -36,26 +36,38 @@ The workflow takes a research topic as input, gathers relevant findings, and gen
 
 ```text
 Research-with-CrewAI/
-├── config/
-│   ├── agents.yaml
-│   └── tasks.yaml
-├── crew.py
-├── main.py
+├── knowledge/
+│   └── user_preference.txt
+├── src/
+│   └── researcher/
+│       ├── config/
+│       │   ├── agents.yaml
+│       │   └── tasks.yaml
+│       ├── tools/
+│       │   ├── __init__.py
+│       │   └── custom_tool.py
+│       ├── __init__.py
+│       ├── crew.py
+│       └── main.py
+├── tests/
+│   ├── __init__.py
+│   └── test_crew.py
+├── .env.example
+├── .gitignore
+├── .python-version
+├── AGENTS.md
 ├── pyproject.toml
-├── .env
-├── README.md
-└── report.md
+├── uv.lock
+└── README.md
 ```
-
-*Note: The exact structure may vary depending on the repository version.*
 
 ## 📦 Installation
 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/marwaa0mar/Researcher-with-CrewAI.git
-cd Researcher-with-CrewAI
+git clone https://github.com/Tanish-o9/Research-with-crewAI.git
+cd Research-with-crewAI
 ```
 
 ### 2. Install dependencies
