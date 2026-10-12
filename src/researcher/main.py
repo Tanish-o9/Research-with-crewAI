@@ -1,7 +1,19 @@
-#!/usr/bin/env python
 import sys
 import warnings
+from pathlib import Path
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Ensure 'src' is in sys.path when running main.py directly
+src_dir = str(Path(__file__).resolve().parent.parent)
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
+
+import os
+
+load_dotenv()
+if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
+    os.environ["GOOGLE_API_KEY"] = os.environ["GEMINI_API_KEY"]
 
 from researcher.crew import Researcher
 from researcher.tools.export_utils import export_report
@@ -31,13 +43,19 @@ def run():
     """
     Run the crew with dynamic topic input and dual Markdown/HTML export.
     """
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
     topic = get_research_topic()
     current_year = str(datetime.now().year)
 
     print("\n" + "=" * 60)
-    print(f"🚀 Starting Research Crew")
-    print(f"   Topic:        {topic}")
-    print(f"   Current Year: {current_year}")
+    print(f"[*] Starting Research Crew")
+    print(f"    Topic:        {topic}")
+    print(f"    Current Year: {current_year}")
     print("=" * 60 + "\n")
 
     inputs = {
@@ -54,10 +72,10 @@ def run():
         exported = export_report(report_text, topic=topic)
 
         print("\n" + "=" * 60)
-        print("✅ Research Workflow Complete!")
-        print(f"   📄 Markdown Report : {exported['markdown_file']}")
-        print(f"   🌐 HTML Dashboard   : {exported['html_file']}")
-        print(f"   📌 Latest File      : {exported['latest_markdown']}")
+        print("[SUCCESS] Research Workflow Complete!")
+        print(f"   Markdown Report : {exported['markdown_file']}")
+        print(f"   HTML Dashboard   : {exported['html_file']}")
+        print(f"   Latest File      : {exported['latest_markdown']}")
         print("=" * 60 + "\n")
 
         return result

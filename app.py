@@ -12,6 +12,8 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 load_dotenv()
+if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
+    os.environ["GOOGLE_API_KEY"] = os.getenv("GEMINI_API_KEY")
 
 from researcher.crew import Researcher
 from researcher.tools.export_utils import export_report
@@ -63,14 +65,19 @@ with st.sidebar:
     st.title("Settings & Status")
 
     # API Key check
-    api_key = os.getenv("OPENROUTER_API_KEY", "")
-    if api_key:
-        st.success("✅ OpenRouter API Key Configured")
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+
+    if gemini_key:
+        st.success("✅ Gemini 2.5 Flash Active")
+    elif openrouter_key:
+        st.success("✅ OpenRouter API Key Active")
     else:
         st.warning("⚠️ No API Key found in .env")
-        custom_key = st.text_input("Enter OpenRouter API Key", type="password")
+        custom_key = st.text_input("Enter Gemini API Key", type="password")
         if custom_key:
-            os.environ["OPENROUTER_API_KEY"] = custom_key
+            os.environ["GEMINI_API_KEY"] = custom_key
+            os.environ["GOOGLE_API_KEY"] = custom_key
             st.success("API Key updated for this session!")
 
     st.markdown("---")
@@ -154,8 +161,8 @@ if "topic" in st.session_state:
 
 # Run Crew Execution
 if start_btn:
-    if not os.getenv("OPENROUTER_API_KEY"):
-        st.error("❌ Please provide an OpenRouter API Key in `.env` or in the sidebar.")
+    if not (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or os.getenv("OPENROUTER_API_KEY")):
+        st.error("❌ Please provide an API Key in `.env` or in the sidebar.")
     elif not topic_input.strip():
         st.warning("⚠️ Please enter a research topic first.")
     else:
