@@ -139,24 +139,7 @@ with col2:
     st.write("")
     start_btn = st.button("🚀 Start Autonomous Research", type="primary", use_container_width=True)
 
-# Preset Suggestions
-st.markdown("**Quick Topics:**")
-cols = st.columns(4)
-if cols[0].button("🧬 mRNA Vaccines 2026"):
-    st.session_state["topic"] = "mRNA Vaccines Breakthroughs in 2026"
-    st.rerun()
-if cols[1].button("⚛️ Quantum Computing"):
-    st.session_state["topic"] = "Quantum Computing Advancements in 2026"
-    st.rerun()
-if cols[2].button("🔋 Solid-State Batteries"):
-    st.session_state["topic"] = "Commercial Solid-State Battery Progress in 2026"
-    st.rerun()
-if cols[3].button("🤖 Humanoid Robots"):
-    st.session_state["topic"] = "Commercial Humanoid Robotics Industry in 2026"
-    st.rerun()
 
-if "topic" in st.session_state:
-    topic_input = st.session_state["topic"]
 
 
 # Run Crew Execution
