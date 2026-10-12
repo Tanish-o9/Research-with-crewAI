@@ -1,17 +1,29 @@
 research_task:
   description: >
-    Conduct a thorough research about {topic}
-    Make sure you find any interesting and relevant information given
-    the current year is {current_year}.
+    Conduct a comprehensive investigation on {topic} considering the current year is {current_year}.
+    Use the web search tool to find the most recent trends, breakthroughs, real-world data, and expert insights.
+    Select the top 10 most critical findings with key takeaways and relevant URLs or citations.
   expected_output: >
-    A list with 10 bullet points of the most relevant information about {topic}
+    A list of 10 structured findings on {topic}, each containing a concise title, 2-3 sentence explanation,
+    and associated source references or evidence.
   agent: researcher
 
 reporting_task:
   description: >
-    Review the context you got and expand each topic into a full section for a report.
-    Make sure the report is detailed and contains any and all relevant information.
+    Review the 10 research findings from the research task and synthesize them into a thorough,
+    well-structured draft report. Expand each finding into an analytical section with background,
+    impact, and future outlook. Ensure fluid transitions between topics.
   expected_output: >
-    A fully fledged report with the main topics, each with a full section of information.
-    Formatted as markdown without '```'
+    A comprehensive multi-section draft report covering all 10 topics in clear, engaging Markdown format.
   agent: reporting_analyst
+
+review_task:
+  description: >
+    Carefully review and audit the draft report. Verify clarity, ensure no repetition,
+    add a top-level # Executive Summary, a structured ## Key Takeaways section, and a thoughtful
+    ## Conclusion & Strategic Recommendations at the end.
+    Ensure professional Markdown formatting without code fences ('```').
+  expected_output: >
+    A publication-ready, polished Markdown report complete with Executive Summary,
+    in-depth sections, Key Takeaways, and Conclusion.
+  agent: fact_checker
