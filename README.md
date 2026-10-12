@@ -88,6 +88,7 @@ Research-with-crewAI/
 ├── .env.example
 ├── .gitignore
 ├── .python-version
+├── app.py                            # Streamlit Web UI Dashboard
 ├── AGENTS.md                         # CrewAI developer reference guide
 ├── pyproject.toml
 ├── uv.lock
@@ -130,18 +131,24 @@ OPENROUTER_API_KEY=your_openrouter_api_key_here
 
 ## 🚀 Running the Project
 
-### Option A: Pass a topic via CLI
+### Option A: Interactive Streamlit Web UI (Recommended)
+Launch the graphical browser interface:
+```bash
+streamlit run app.py
+```
+
+### Option B: Pass a topic via CLI
 ```bash
 python src/researcher/main.py "Artificial General Intelligence"
 ```
 
-### Option B: Interactive mode
+### Option C: Interactive Terminal mode
 ```bash
 python src/researcher/main.py
 ```
 *(Prompts: `Enter research topic (Press Enter for 'AI LLMs'):`)*
 
-### Option C: CrewAI CLI
+### Option D: CrewAI CLI
 ```bash
 crewai run
 ```

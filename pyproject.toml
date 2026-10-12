@@ -6,7 +6,8 @@ authors = [{ name = "Tanish-o9", email = "tanishrajput673@gmail.com" }]
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "crewai[tools]==1.14.4",
-    "duckduckgo-search>=7.0.0"
+    "duckduckgo-search>=7.0.0",
+    "streamlit>=1.35.0"
 ]
 
 [project.scripts]
