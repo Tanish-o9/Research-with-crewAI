@@ -127,7 +127,7 @@ This project is a learning-oriented implementation of an AI research workflow us
 
 **Your Name**
 
-GitHub: [Your GitHub Profile](https://github.com/your-username)
+GitHub: https://github.com/Tanish-o9
 
 ## 📄 License
 
