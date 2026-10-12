@@ -1,67 +1,102 @@
 # 🔍 Researcher with CrewAI
 
-An AI-powered research automation project built using **CrewAI** and Large Language Models (LLMs). It uses specialized AI agents to research topics, analyze information, and generate structured research reports through a collaborative workflow.
+An advanced multi-agent research and intelligence pipeline built with **CrewAI** and Large Language Models (LLMs). It coordinates three specialized AI agents to autonomously search the web, synthesize findings, verify facts, and produce publication-ready research reports in both **Markdown** and **HTML Dashboard** formats.
+
+---
 
 ## 🚀 Overview
 
-Research with CrewAI demonstrates how multiple AI agents can work together to automate a research task. Instead of relying on a single AI agent, the project separates research and report writing into specialized tasks.
+Instead of relying on a single prompt or a generic LLM response, **Researcher with CrewAI** orchestrates a sequential, multi-agent editorial pipeline:
 
-The workflow takes a research topic as input, gathers relevant findings, and generates a structured report in Markdown format.
+```text
+User Topic Input (CLI / Interactive)
+                 │
+                 ▼
+┌──────────────────────────────────────┐
+│       Senior Data Researcher         │ ◄─── Uses Live Web Search Tool
+└──────────────────────────────────────┘      (DuckDuckGo Search)
+                 │
+                 ▼ (Passes 10 Key Findings + Sources)
+┌──────────────────────────────────────┐
+│          Reporting Analyst           │ ────► Drafts In-depth Sections
+└──────────────────────────────────────┘
+                 │
+                 ▼ (Passes Draft Report)
+┌──────────────────────────────────────┐
+│  Lead Editor & Fact-Checking Expert  │ ────► Polishes, Adds Executive Summary,
+└──────────────────────────────────────┘      Key Takeaways & Citations
+                 │
+                 ▼
+┌──────────────────────────────────────┐
+│             Dual Export              │ ────► 📄 reports/report_*.md
+│                                      │ ────► 🌐 reports/report_*.html
+└──────────────────────────────────────┘
+```
 
-## ✨ Features
+---
 
-- 🤖 **Multi-Agent Workflow:** Uses specialized AI agents for different responsibilities.
-- 🔎 **Automated Research:** Researches the given topic and identifies key findings.
-- 📝 **Report Generation:** Creates structured research reports automatically.
-- 🔗 **Task Coordination:** Passes research findings between sequential tasks.
-- 🧠 **LLM Integration:** Uses a language model through OpenRouter.
-- 📄 **Markdown Output:** Generates a readable research report.
+## ✨ Key Features
+
+- 🤖 **3-Agent Pipeline:**
+  1. **Senior Data Researcher:** Conducts live web research and extracts key facts, metrics, and trends.
+  2. **Reporting Analyst:** Organizes research into structured chapters and analytical narratives.
+  3. **Lead Editor & Fact-Checking Specialist:** Audits accuracy, eliminates repetition, adds an Executive Summary, Key Takeaways, and strategic recommendations.
+- 🌐 **Real-time Web Search Tool:** Equipped with a built-in DuckDuckGo Search tool to fetch up-to-date facts without requiring costly search API keys.
+- ⌨️ **Dynamic CLI & Interactive Mode:** Run for any topic from the terminal or enter one interactively:
+  ```bash
+  python src/researcher/main.py "Quantum Computing Breakthroughs"
+  ```
+- 📊 **Dual Output Format (Markdown + HTML):** Automatically saves timestamped reports and renders a dark-mode styled HTML dashboard view for sharing or presentation.
+- 🧠 **Free High-Parameter LLM:** Configured with **NVIDIA Nemotron 3 Super 120B A12B** via OpenRouter.
+
+---
 
 ## 🛠️ Tech Stack
 
-- **Language:** Python
-- **Multi-Agent Framework:** CrewAI
-- **LLM Access:** OpenRouter
-- **Configuration:** YAML
-- **Package Management:** uv
+- **Framework:** CrewAI 1.14.4
+- **Language:** Python `>=3.10, <3.14`
+- **Web Search:** `duckduckgo-search`
+- **LLM Provider:** OpenRouter (`openrouter/nvidia/nemotron-3-super-120b-a12b:free`)
+- **Package Manager:** `uv` / `pip`
 
-## ⚙️ How It Works
-
-1. **Input:** The user provides a research topic.
-2. **Research Agent:** Collects information and identifies important findings.
-3. **Reporting Agent:** Organizes the findings into a structured report.
-4. **Output:** The final report is generated as a Markdown file.
+---
 
 ## 📁 Project Structure
 
 ```text
-Research-with-CrewAI/
+Research-with-crewAI/
 ├── knowledge/
-│   └── user_preference.txt
+│   └── user_preference.txt           # Sample knowledge base context
+├── reports/
+│   └── .gitkeep                      # Output directory for generated reports
 ├── src/
 │   └── researcher/
 │       ├── config/
-│       │   ├── agents.yaml
-│       │   └── tasks.yaml
+│       │   ├── agents.yaml           # Agent roles, backstories, models
+│       │   └── tasks.yaml            # Task instructions, outputs, assignments
 │       ├── tools/
 │       │   ├── __init__.py
-│       │   └── custom_tool.py
+│       │   ├── custom_tool.py        # Custom tool scaffold
+│       │   ├── export_utils.py       # Dual Markdown & HTML export engine
+│       │   └── search_tool.py        # Live DuckDuckGo web search tool
 │       ├── __init__.py
-│       ├── crew.py
-│       └── main.py
+│       ├── crew.py                   # Sequential crew orchestration
+│       └── main.py                   # Dynamic CLI entrypoint
 ├── tests/
 │   ├── __init__.py
-│   └── test_crew.py
+│   └── test_crew.py                  # Unit tests for crew and tools
 ├── .env.example
 ├── .gitignore
 ├── .python-version
-├── AGENTS.md
+├── AGENTS.md                         # CrewAI developer reference guide
 ├── pyproject.toml
 ├── uv.lock
 └── README.md
 ```
 
-## 📦 Installation
+---
+
+## 📦 Installation & Setup
 
 ### 1. Clone the repository
 
@@ -72,75 +107,63 @@ cd Research-with-crewAI
 
 ### 2. Install dependencies
 
-If the project uses `uv`, install it and sync the dependencies:
-
+Using `uv` (recommended):
 ```bash
-pip install uv
 uv sync
 ```
 
-### 3. Configure environment variables
+Or using standard `pip`:
+```bash
+pip install -e .
+```
+
+### 3. Configure API Key
 
 Create a `.env` file in the project root:
-
 ```env
-OPENROUTER_API_KEY=your_openrouter_api_key
+OPENROUTER_API_KEY=your_openrouter_api_key_here
 ```
 
-Replace the placeholder with your own API key. Never commit real API keys to GitHub.
+*(Get a free key from [OpenRouter](https://openrouter.ai/keys)).*
 
-### 4. Run the project
+---
 
-Use the command specified in the repository's entry point and configuration. For example:
+## 🚀 Running the Project
 
+### Option A: Pass a topic via CLI
 ```bash
-uv run main.py
+python src/researcher/main.py "Artificial General Intelligence"
 ```
 
-If the project expects a different command or requires a topic through a specific input mechanism, follow its current `README`, `main.py`, and `pyproject.toml` configuration.
+### Option B: Interactive mode
+```bash
+python src/researcher/main.py
+```
+*(Prompts: `Enter research topic (Press Enter for 'AI LLMs'):`)*
+
+### Option C: CrewAI CLI
+```bash
+crewai run
+```
+
+---
 
 ## 📊 Output
 
-The system generates a structured research report containing key findings and explanations about the selected topic.
+Generated reports are automatically saved inside the `reports/` folder:
+- **`reports/report_<timestamp>_<topic>.md`** — Clean Markdown report.
+- **`reports/report_<timestamp>_<topic>.html`** — Styled HTML dashboard view ready to open in any web browser.
+- **`reports/latest_report.md`** — Symlink/copy of the most recent run.
 
-The report can be saved in Markdown format and viewed in any Markdown editor.
-
-## 🎯 Learning Objectives
-
-This project helps demonstrate practical concepts such as:
-
-- AI agents and agent roles
-- Task definition and execution
-- Sequential multi-agent workflows
-- Context passing between tasks
-- LLM API integration
-- Automated report generation
-
-## 🔮 Future Improvements
-
-- Add web-search tools for source-based research.
-- Introduce a fact-checking agent.
-- Include source links and citations in reports.
-- Add parallel research agents.
-- Build a web interface using FastAPI and React.
-- Add report evaluation and quality checks.
-
-## 🔐 Security
-
-- Store API keys in environment variables.
-- Keep `.env` out of version control.
-- Never expose private credentials in source code or public commits.
-
-## 📌 Project Status
-
-This project is a learning-oriented implementation of an AI research workflow using CrewAI. Its capabilities depend on the configured agents, tools, and language model.
+---
 
 ## 👨‍💻 Author
 
-**Your Name**
+**Tanish Kumar**  
+GitHub: [https://github.com/Tanish-o9](https://github.com/Tanish-o9)
 
-GitHub: https://github.com/Tanish-o9
+---
 
 ## 📄 License
 
-Add a license if you intend to distribute or reuse this project under specific terms.
+This project is licensed under the MIT License.
