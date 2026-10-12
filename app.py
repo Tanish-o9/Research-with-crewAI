@@ -42,27 +42,73 @@ st.markdown("""
         font-size: 1.05rem;
         margin-bottom: 1.5rem;
     }
-    .agent-card {
-        background-color: #1e293b;
+    .step-card {
+        background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
         border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 1rem;
+        border-radius: 12px;
+        padding: 1.4rem;
+        height: 100%;
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .step-card:hover {
+        transform: translateY(-4px);
+        border-color: #38bdf8;
+    }
+    .step-badge {
+        display: inline-block;
+        padding: 0.25rem 0.65rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        border-radius: 9999px;
+        margin-bottom: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .badge-blue { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .badge-purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+    .badge-emerald { background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
+    .step-title {
+        color: #ffffff;
+        font-size: 1.15rem;
+        font-weight: 700;
+        margin-bottom: 0.4rem;
+    }
+    .step-agent {
+        color: #94a3b8;
+        font-size: 0.85rem;
+        font-weight: 600;
         margin-bottom: 0.75rem;
     }
-    .report-box {
-        background-color: #0f172a;
-        border: 1px solid #334155;
-        border-radius: 10px;
-        padding: 2rem;
+    .step-desc {
+        color: #cbd5e1;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        margin-bottom: 0.85rem;
     }
+    .step-output {
+        background: rgba(15, 23, 42, 0.6);
+        border-left: 3px solid #38bdf8;
+        padding: 0.4rem 0.7rem;
+        font-size: 0.8rem;
+        color: #e2e8f0;
+        border-radius: 0 4px 4px 0;
+    }
+    .metric-badge {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        text-align: center;
+    }
+    .metric-val { font-size: 1.25rem; font-weight: 800; color: #38bdf8; }
+    .metric-lbl { font-size: 0.8rem; color: #94a3b8; }
 </style>
 """, unsafe_allow_html=True)
 
 
 # Sidebar Configuration
 with st.sidebar:
-    st.image("https://img.icons8.com/isometric/100/artificial-intelligence.png", width=70)
-    st.title("Settings & Status")
+    st.title("⚙️ Settings & Status")
 
     # API Key check
     gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
@@ -120,7 +166,7 @@ with st.sidebar:
 # Main App Layout
 st.markdown('<div class="main-title">🔍 AI Research & Intelligence Crew</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="sub-title">Autonomous 3-Agent Collaborative Research Pipeline powered by CrewAI &amp; OpenRouter</div>',
+    '<div class="sub-title">Autonomous 3-Agent Collaborative Research Pipeline powered by CrewAI &amp; Google Gemini</div>',
     unsafe_allow_html=True
 )
 
@@ -131,7 +177,7 @@ with col1:
     topic_input = st.text_input(
         "Enter Research Topic:",
         value=default_topic,
-        placeholder="e.g., Quantum Computing Breakthroughs, Solid-State Batteries..."
+        placeholder="e.g., Quantum Computing Breakthroughs, Solid-State Batteries, Space Exploration..."
     )
 
 with col2:
@@ -139,10 +185,92 @@ with col2:
     st.write("")
     start_btn = st.button("🚀 Start Autonomous Research", type="primary", use_container_width=True)
 
+# ----------------- HOW AGENTS WORK SECTION -----------------
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("#### ⚡ How the Multi-Agent Pipeline Works")
+
+step_col1, step_col2, step_col3 = st.columns(3)
+
+with step_col1:
+    st.markdown("""
+    <div class="step-card">
+        <span class="step-badge badge-blue">Phase 1 &bull; Discovery</span>
+        <div class="step-title">🔎 Live Web Research</div>
+        <div class="step-agent">Agent: Senior Data Researcher</div>
+        <div class="step-desc">
+            Executes autonomous real-time web searches using DuckDuckGo to unearth primary sources, latest breakthrough metrics, and current year trends.
+        </div>
+        <div class="step-output">
+            <strong>Output:</strong> 10 Verified Key Findings with citations
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with step_col2:
+    st.markdown("""
+    <div class="step-card">
+        <span class="step-badge badge-purple">Phase 2 &bull; Synthesis</span>
+        <div class="step-title">✍️ Analytical Drafting</div>
+        <div class="step-agent">Agent: Reporting Analyst</div>
+        <div class="step-desc">
+            Takes raw research findings as context, dissects technical nuances, analyzes industry impact, and synthesizes in-depth multi-section chapters.
+        </div>
+        <div class="step-output">
+            <strong>Output:</strong> Comprehensive Draft Technical Report
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with step_col3:
+    st.markdown("""
+    <div class="step-card">
+        <span class="step-badge badge-emerald">Phase 3 &bull; Final Polish</span>
+        <div class="step-title">🛡️ Fact-Check & Executive Brief</div>
+        <div class="step-agent">Agent: Lead Editor & Fact-Checker</div>
+        <div class="step-desc">
+            Audits the report for consistency and clarity, eliminates hallucinations, crafts a high-impact Executive Summary, Key Takeaways, and strategic recommendations.
+        </div>
+        <div class="step-output">
+            <strong>Output:</strong> Publication-ready Markdown & HTML Dashboard
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# System Architecture Highlights
+m1, m2, m3, m4 = st.columns(4)
+with m1:
+    st.markdown("""
+    <div class="metric-badge">
+        <div class="metric-val">3 Agents</div>
+        <div class="metric-lbl">Autonomous Collaboration</div>
+    </div>
+    """, unsafe_allow_html=True)
+with m2:
+    st.markdown("""
+    <div class="metric-badge">
+        <div class="metric-val">Gemini 2.5</div>
+        <div class="metric-lbl">High-Speed Flash Engine</div>
+    </div>
+    """, unsafe_allow_html=True)
+with m3:
+    st.markdown("""
+    <div class="metric-badge">
+        <div class="metric-val">Live Web</div>
+        <div class="metric-lbl">Real-Time Search Retrieval</div>
+    </div>
+    """, unsafe_allow_html=True)
+with m4:
+    st.markdown("""
+    <div class="metric-badge">
+        <div class="metric-val">MD + HTML</div>
+        <div class="metric-lbl">Dual Multi-Format Export</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
-
-# Run Crew Execution
+# ----------------- RUN CREW EXECUTION -----------------
 if start_btn:
     if not (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or os.getenv("OPENROUTER_API_KEY")):
         st.error("❌ Please provide an API Key in `.env` or in the sidebar.")
