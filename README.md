@@ -38,57 +38,63 @@ User Topic Input (CLI / Interactive)
 ## ✨ Key Features
 
 - 🤖 **3-Agent Pipeline:**
-  1. **Senior Data Researcher:** Conducts live web research and extracts key facts, metrics, and trends.
-  2. **Reporting Analyst:** Organizes research into structured chapters and analytical narratives.
+  1. **Senior Data Researcher:** Conducts live web research via DuckDuckGo and uses deep web scraping to extract full articles and data.
+  2. **Reporting Analyst:** Ingests research findings and local knowledge base documents (RAG) to draft structured chapters.
   3. **Lead Editor & Fact-Checking Specialist:** Audits accuracy, eliminates repetition, adds an Executive Summary, Key Takeaways, and strategic recommendations.
-- 🌐 **Real-time Web Search Tool:** Equipped with a built-in DuckDuckGo Search tool to fetch up-to-date facts without requiring costly search API keys.
-- ⌨️ **Dynamic CLI & Interactive Mode:** Run for any topic from the terminal or enter one interactively:
-  ```bash
-  python src/researcher/main.py "Quantum Computing Breakthroughs"
-  ```
-- 📊 **Dual Output Format (Markdown + HTML):** Automatically saves timestamped reports and renders a dark-mode styled HTML dashboard view for sharing or presentation.
-- 🧠 **Free High-Parameter LLM:** Configured with **NVIDIA Nemotron 3 Super 120B A12B** via OpenRouter.
+- 🌐 **Deep Web Scraping & Live Search:** Equipped with DuckDuckGo Search and a custom `PageScraperTool` (`read_webpage_content`) to visit URLs and extract full body content.
+- 📁 **Knowledge Base & Document Upload (RAG):** Upload PDF, TXT, and MD documents in the Streamlit UI to ground research on internal reference material alongside live web data.
+- 💬 **Interactive "Chat with Report":** Follow-up Q&A assistant tab in Streamlit grounded strictly on the generated report.
+- 🎧 **Executive Audio Podcast Briefing:** Automatically generates an MP3 audio briefing using text-to-speech for hands-free listening.
+- 📊 **Quad-Format Export (Markdown + HTML + PDF + MP3):** Exports timestamped `.md`, dark-mode `.html` dashboard, formatted `.pdf` document, and `.mp3` audio briefing.
+- ⚡ **Live Real-time Agent Streaming:** Watch agents think, search, scrape, and draft live on the Streamlit dashboard console.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Framework:** CrewAI 1.14.4
+- **Framework:** CrewAI 1.15+
 - **Language:** Python `>=3.10, <3.14`
-- **Web Search:** `duckduckgo-search`
-- **LLM Provider:** OpenRouter (`openrouter/nvidia/nemotron-3-super-120b-a12b:free`)
-- **Package Manager:** `uv` / `pip`
+- **Web Search & Scraping:** `duckduckgo-search`, `beautifulsoup4`, `requests`
+- **Document RAG:** `pypdf`
+- **PDF Publishing:** `reportlab`
+- **Voice Briefing:** `gTTS` / `pyttsx3`
+- **LLM Engine:** Google Gemini (`gemini-2.5-flash`) / OpenRouter
+- **User Interface:** Streamlit
 
 ---
 
 ## 📁 Project Structure
 
 ```text
-Research-with-crewAI/
+Researcher-with-CrewAI/
 ├── knowledge/
-│   └── user_preference.txt           # Sample knowledge base context
+│   └── user_preference.txt           # Ingested knowledge documents (PDF, TXT, MD)
 ├── reports/
-│   └── .gitkeep                      # Output directory for generated reports
+│   └── .gitkeep                      # Output directory (.md, .html, .pdf, .mp3)
 ├── src/
 │   └── researcher/
 │       ├── config/
 │       │   ├── agents.yaml           # Agent roles, backstories, models
-│       │   └── tasks.yaml            # Task instructions, outputs, assignments
+│       │   └── tasks.yaml            # Task instructions, depth, tone & knowledge
 │       ├── tools/
 │       │   ├── __init__.py
+│       │   ├── audio_brief.py        # Audio podcast briefing generator (TTS)
 │       │   ├── custom_tool.py        # Custom tool scaffold
-│       │   ├── export_utils.py       # Dual Markdown & HTML export engine
+│       │   ├── export_utils.py       # Quad export engine (MD, HTML, PDF, MP3)
+│       │   ├── knowledge_utils.py    # PDF and text document RAG loader
+│       │   ├── pdf_export.py         # ReportLab publication PDF generator
+│       │   ├── scraper_tool.py       # Deep webpage content reader
 │       │   └── search_tool.py        # Live DuckDuckGo web search tool
 │       ├── __init__.py
 │       ├── crew.py                   # Sequential crew orchestration
 │       └── main.py                   # Dynamic CLI entrypoint
 ├── tests/
 │   ├── __init__.py
-│   └── test_crew.py                  # Unit tests for crew and tools
+│   └── test_crew.py                  # Unit tests for crew, tools, PDF, audio & RAG
 ├── .env.example
 ├── .gitignore
 ├── .python-version
-├── app.py                            # Streamlit Web UI Dashboard
+├── app.py                            # Streamlit Web UI Dashboard with streaming & chat
 ├── AGENTS.md                         # CrewAI developer reference guide
 ├── pyproject.toml
 ├── uv.lock

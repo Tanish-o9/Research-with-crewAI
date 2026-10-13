@@ -2,6 +2,7 @@ from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 from crewai.agents.agent_builder.base_agent import BaseAgent
 from researcher.tools.search_tool import WebSearchTool
+from researcher.tools.scraper_tool import PageScraperTool
 
 
 @CrewBase
@@ -15,9 +16,10 @@ class Researcher():
     def researcher(self) -> Agent:
         return Agent(
             config=self.agents_config['researcher'],
-            tools=[WebSearchTool()],
+            tools=[WebSearchTool(), PageScraperTool()],
             verbose=True
         )
+
 
     @agent
     def reporting_analyst(self) -> Agent:

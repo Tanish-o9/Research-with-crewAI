@@ -185,8 +185,47 @@ def export_report(markdown_content: str, topic: str, output_dir: str = "reports"
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(full_html)
 
+    # 3. Export PDF
+    pdf_filename = f"report_{timestamp}_{slug}.pdf"
+    pdf_path = os.path.join(output_dir, pdf_filename)
+    latest_pdf_path = os.path.join(output_dir, "latest_report.pdf")
+    try:
+        from researcher.tools.pdf_export import export_markdown_to_pdf
+        export_markdown_to_pdf(markdown_content, topic=topic, output_path=pdf_path)
+        # Also copy/save as latest_report.pdf
+        if os.path.exists(pdf_path):
+            import shutil
+            shutil.copy2(pdf_path, latest_pdf_path)
+    except Exception as e:
+        print(f"[Warning] PDF generation skipped/failed: {e}")
+        pdf_path = None
+        latest_pdf_path = None
+
+    # 4. Generate Audio Briefing
+    audio_filename = f"report_{timestamp}_{slug}.mp3"
+    audio_path = os.path.join(output_dir, audio_filename)
+    latest_audio_path = os.path.join(output_dir, "latest_report.mp3")
+    try:
+        from researcher.tools.audio_brief import generate_audio_brief
+        res_audio = generate_audio_brief(markdown_content, topic=topic, output_path=audio_path)
+        if res_audio and os.path.exists(res_audio):
+            import shutil
+            shutil.copy2(res_audio, latest_audio_path)
+        else:
+            audio_path = None
+            latest_audio_path = None
+    except Exception as e:
+        print(f"[Warning] Audio generation skipped/failed: {e}")
+        audio_path = None
+        latest_audio_path = None
+
     return {
         "markdown_file": md_path,
         "latest_markdown": latest_path,
         "html_file": html_path,
+        "pdf_file": pdf_path,
+        "latest_pdf": latest_pdf_path,
+        "audio_file": audio_path,
+        "latest_audio": latest_audio_path,
     }
+

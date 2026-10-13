@@ -1,5 +1,7 @@
 import os
 import sys
+import io
+import contextlib
 from datetime import datetime
 from pathlib import Path
 import streamlit as st
@@ -17,10 +19,11 @@ if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
 
 from researcher.crew import Researcher
 from researcher.tools.export_utils import export_report
+from researcher.tools.knowledge_utils import load_knowledge_documents, save_uploaded_knowledge_file
 
 # Page Configuration
 st.set_page_config(
-    page_title="Researcher with CrewAI",
+    page_title="Researcher with CrewAI - Multi-Agent Engine",
     page_icon="🔍",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -106,9 +109,78 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# Sidebar Configuration
+class LiveOutputRedirector:
+    """Redirects stdout to a real-time Streamlit log display."""
+    def __init__(self, code_placeholder):
+        self.code_placeholder = code_placeholder
+        self.lines = []
+        self._stdout = sys.stdout
+
+    def write(self, text):
+        self._stdout.write(text)
+        if text.strip():
+            self.lines.append(text)
+            # Display last 30 lines for smooth streaming
+            recent = "".join(self.lines[-30:])
+            self.code_placeholder.code(recent, language="bash")
+
+    def flush(self):
+        self._stdout.flush()
+
+
+def answer_report_query(question: str, report_text: str) -> str:
+    """Answers follow-up questions grounded strictly on the research report."""
+    prompt = f"""You are an elite research intelligence analyst.
+Answer the user's inquiry accurately and concisely, drawing primarily from the provided research report below.
+If details are not in the report, state that clearly and offer a reasonable analytical perspective.
+
+RESEARCH REPORT:
+{report_text[:14000]}
+
+USER QUESTION:
+{question}
+"""
+    # 1. Try LiteLLM
+    try:
+        import litellm
+        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        if api_key:
+            response = litellm.completion(
+                model="gemini/gemini-2.5-flash",
+                messages=[{"role": "user", "content": prompt}],
+                api_key=api_key,
+                temperature=0.3
+            )
+            return response.choices[0].message.content
+        elif os.getenv("OPENROUTER_API_KEY"):
+            response = litellm.completion(
+                model="openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+                messages=[{"role": "user", "content": prompt}],
+                api_key=os.getenv("OPENROUTER_API_KEY"),
+                temperature=0.3
+            )
+            return response.choices[0].message.content
+    except Exception as e:
+        pass
+
+    # 2. Try Google GenAI SDK fallback
+    try:
+        from google import genai
+        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+        return response.text
+    except Exception as err:
+        return f"Unable to process Q&A at this time: {str(err)}"
+
+
+# ==============================================================
+# SIDEBAR CONFIGURATION
+# ==============================================================
 with st.sidebar:
-    st.title("⚙️ Settings & Status")
+    st.title("⚙️ Controls & Status")
 
     # API Key check
     gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
@@ -127,15 +199,39 @@ with st.sidebar:
             st.success("API Key updated for this session!")
 
     st.markdown("---")
-    st.subheader("🤖 Active Crew Agents")
-    st.markdown("""
-    - **🔍 Senior Data Researcher**  
-      *Real-time web search with DuckDuckGo*
-    - **✍️ Reporting Analyst**  
-      *Detailed chapter & narrative drafting*
-    - **🛡️ Lead Editor & Fact-Checker**  
-      *Audit, Executive Summary & Takeaways*
-    """)
+    st.subheader("🎛️ Research Preferences")
+    research_depth = st.selectbox(
+        "Research Depth:",
+        options=["Comprehensive Deep Dive", "Quick Executive Brief", "Technical Whitepaper"],
+        index=0
+    )
+    research_tone = st.selectbox(
+        "Analytical Tone:",
+        options=["Professional & Analytical", "Executive C-Level Brief", "Academic & Scholarly", "Investigative & Critical"],
+        index=0
+    )
+
+    st.markdown("---")
+    st.subheader("📁 Knowledge Base (RAG)")
+    uploaded_files = st.file_uploader(
+        "Upload reference documents (.pdf, .txt, .md):",
+        type=["pdf", "txt", "md"],
+        accept_multiple_files=True
+    )
+    if uploaded_files:
+        for f in uploaded_files:
+            save_path = save_uploaded_knowledge_file(f, target_dir=str(BASE_DIR / "knowledge"))
+            st.caption(f"Ingested: `{f.name}`")
+        st.success(f"Ingested {len(uploaded_files)} file(s) into knowledge base!")
+
+    # Show existing knowledge files
+    knowledge_dir = BASE_DIR / "knowledge"
+    if knowledge_dir.exists():
+        k_files = [p.name for p in knowledge_dir.glob("*") if p.suffix.lower() in [".pdf", ".txt", ".md"]]
+        if k_files:
+            with st.expander(f"📚 Active Documents ({len(k_files)})"):
+                for kf in k_files:
+                    st.text(f"• {kf}")
 
     st.markdown("---")
     st.subheader("📚 Saved Reports History")
@@ -144,64 +240,81 @@ with st.sidebar:
         md_files = sorted(list(reports_dir.glob("report_*.md")), reverse=True)
         if md_files:
             selected_file = st.selectbox(
-                "Select a previous report to view:",
+                "Select a previous report:",
                 options=md_files,
                 format_func=lambda x: x.stem.replace("report_", "")
             )
             if selected_file:
                 with open(selected_file, "r", encoding="utf-8") as f:
                     past_content = f.read()
-                st.download_button(
-                    label="📥 Download Selected Report",
-                    data=past_content,
-                    file_name=selected_file.name,
-                    mime="text/markdown"
-                )
+
+                # Corresponding PDF and Audio if available
+                base_stem = selected_file.stem
+                pdf_match = reports_dir / f"{base_stem}.pdf"
+                audio_match = reports_dir / f"{base_stem}.mp3"
+
+                col_d1, col_d2 = st.columns(2)
+                with col_d1:
+                    st.download_button(
+                        label="📥 Download MD",
+                        data=past_content,
+                        file_name=selected_file.name,
+                        mime="text/markdown",
+                        use_container_width=True
+                    )
+                with col_d2:
+                    if pdf_match.exists():
+                        with open(pdf_match, "rb") as pf:
+                            st.download_button(
+                                label="📥 Download PDF",
+                                data=pf.read(),
+                                file_name=pdf_match.name,
+                                mime="application/pdf",
+                                use_container_width=True
+                            )
+                if audio_match.exists():
+                    st.audio(str(audio_match))
         else:
             st.info("No past reports found yet.")
-    else:
-        st.info("Reports folder will appear after first run.")
 
 
-# Main App Layout
+# ==============================================================
+# MAIN PAGE LAYOUT
+# ==============================================================
 st.markdown('<div class="main-title">🔍 AI Research & Intelligence Crew</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="sub-title">Autonomous 3-Agent Collaborative Research Pipeline powered by CrewAI &amp; Google Gemini</div>',
+    '<div class="sub-title">Autonomous 3-Agent Collaborative Research Engine &bull; Deep Web Scraping &bull; RAG &bull; PDF &amp; Audio Export</div>',
     unsafe_allow_html=True
 )
 
-col1, col2 = st.columns([3, 1])
-
-with col1:
-    default_topic = "AI Agents in 2026"
+# Topic input & presets
+col_in1, col_in2 = st.columns([3, 1])
+with col_in1:
     topic_input = st.text_input(
         "Enter Research Topic:",
-        value=default_topic,
+        value="AI Agents in 2026",
         placeholder="e.g., Quantum Computing Breakthroughs, Solid-State Batteries, Space Exploration..."
     )
 
-with col2:
+with col_in2:
     st.write("")
     st.write("")
     start_btn = st.button("🚀 Start Autonomous Research", type="primary", use_container_width=True)
 
-# ----------------- HOW AGENTS WORK SECTION -----------------
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown("#### ⚡ How the Multi-Agent Pipeline Works")
-
+# Architecture Features Overview
 step_col1, step_col2, step_col3 = st.columns(3)
 
 with step_col1:
     st.markdown("""
     <div class="step-card">
         <span class="step-badge badge-blue">Phase 1 &bull; Discovery</span>
-        <div class="step-title">🔎 Live Web Research</div>
+        <div class="step-title">🔎 Search & Deep Scraper</div>
         <div class="step-agent">Agent: Senior Data Researcher</div>
         <div class="step-desc">
-            Executes autonomous real-time web searches using DuckDuckGo to unearth primary sources, latest breakthrough metrics, and current year trends.
+            Executes live DuckDuckGo searches and visits top URLs using a custom Deep Webpage Reader to extract technical facts, statistics, and citations.
         </div>
         <div class="step-output">
-            <strong>Output:</strong> 10 Verified Key Findings with citations
+            <strong>Output:</strong> Verified findings &amp; deep source extracts
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -213,10 +326,10 @@ with step_col2:
         <div class="step-title">✍️ Analytical Drafting</div>
         <div class="step-agent">Agent: Reporting Analyst</div>
         <div class="step-desc">
-            Takes raw research findings as context, dissects technical nuances, analyzes industry impact, and synthesizes in-depth multi-section chapters.
+            Ingests raw findings and background documents (RAG), synthesizes technical chapters, analyzes operational impacts, and structures in-depth narratives.
         </div>
         <div class="step-output">
-            <strong>Output:</strong> Comprehensive Draft Technical Report
+            <strong>Output:</strong> Multi-section comprehensive draft
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -228,10 +341,10 @@ with step_col3:
         <div class="step-title">🛡️ Fact-Check & Executive Brief</div>
         <div class="step-agent">Agent: Lead Editor & Fact-Checker</div>
         <div class="step-desc">
-            Audits the report for consistency and clarity, eliminates hallucinations, crafts a high-impact Executive Summary, Key Takeaways, and strategic recommendations.
+            Audits the draft, eliminates hallucinations, compiles an Executive Summary, Key Takeaways, and renders Markdown, HTML, PDF, and Audio MP3 briefing.
         </div>
         <div class="step-output">
-            <strong>Output:</strong> Publication-ready Markdown & HTML Dashboard
+            <strong>Output:</strong> Quad-Format Publication Report
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -244,33 +357,37 @@ with m1:
     st.markdown("""
     <div class="metric-badge">
         <div class="metric-val">3 Agents</div>
-        <div class="metric-lbl">Autonomous Collaboration</div>
+        <div class="metric-lbl">Collaborative CrewAI</div>
     </div>
     """, unsafe_allow_html=True)
 with m2:
     st.markdown("""
     <div class="metric-badge">
-        <div class="metric-val">Gemini 2.5</div>
-        <div class="metric-lbl">High-Speed Flash Engine</div>
+        <div class="metric-val">Deep Scraper</div>
+        <div class="metric-lbl">Live Webpage Extraction</div>
     </div>
     """, unsafe_allow_html=True)
 with m3:
     st.markdown("""
     <div class="metric-badge">
-        <div class="metric-val">Live Web</div>
-        <div class="metric-lbl">Real-Time Search Retrieval</div>
+        <div class="metric-val">RAG Context</div>
+        <div class="metric-lbl">PDF &amp; Knowledge Base</div>
     </div>
     """, unsafe_allow_html=True)
 with m4:
     st.markdown("""
     <div class="metric-badge">
-        <div class="metric-val">MD + HTML</div>
-        <div class="metric-lbl">Dual Multi-Format Export</div>
+        <div class="metric-val">Quad Export</div>
+        <div class="metric-lbl">MD + HTML + PDF + Audio</div>
     </div>
     """, unsafe_allow_html=True)
 
+st.markdown("<br>", unsafe_allow_html=True)
 
-# ----------------- RUN CREW EXECUTION -----------------
+
+# ==============================================================
+# CREW EXECUTION RUNNER
+# ==============================================================
 if start_btn:
     if not (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or os.getenv("OPENROUTER_API_KEY")):
         st.error("❌ Please provide an API Key in `.env` or in the sidebar.")
@@ -278,51 +395,69 @@ if start_btn:
         st.warning("⚠️ Please enter a research topic first.")
     else:
         current_year = str(datetime.now().year)
+
+        # Load knowledge base documents
+        doc_context = load_knowledge_documents(str(BASE_DIR / "knowledge"))
+        knowledge_str = f"Internal Knowledge / Background Documents:\n{doc_context}\n" if doc_context else ""
+
         inputs = {
             "topic": topic_input.strip(),
-            "current_year": current_year
+            "current_year": current_year,
+            "research_depth": research_depth,
+            "research_tone": research_tone,
+            "knowledge_context": knowledge_str,
         }
 
-        progress_container = st.container()
-        with progress_container:
-            st.info(f"⏳ **Crew kicked off for:** '{topic_input.strip()}'. Running 3 sequential agents...")
-            progress_bar = st.progress(15)
+        # Status and Live Streaming Container
+        with st.status("🚀 **Autonomous Crew Executing...**", expanded=True) as status_box:
+            st.write(f"🔬 **Topic:** *{topic_input.strip()}* | **Depth:** {research_depth} | **Tone:** {research_tone}")
+            if doc_context:
+                st.write("📚 Background knowledge documents successfully attached to agent context.")
 
-            status_text = st.empty()
-            status_text.markdown("🔎 **Step 1/3:** Senior Data Researcher searching the live web for verified data...")
+            live_stream_placeholder = st.empty()
+            redirector = LiveOutputRedirector(live_stream_placeholder)
 
             try:
-                # Instantiate and kickoff the crew
-                crew_instance = Researcher().crew()
-                result = crew_instance.kickoff(inputs=inputs)
+                # Run the crew and redirect stdout to live display
+                with contextlib.redirect_stdout(redirector):
+                    crew_instance = Researcher().crew()
+                    result = crew_instance.kickoff(inputs=inputs)
 
-                progress_bar.progress(85)
-                status_text.markdown("🛡️ **Step 3/3:** Fact-Checker finalizing Executive Summary & exporting...")
+                status_box.update(label="✅ **Research Completed & Reports Exported!**", state="complete", expanded=False)
 
                 report_text = getattr(result, "raw", str(result))
-                exported = export_report(report_text, topic=topic_input.strip())
-
-                progress_bar.progress(100)
-                status_text.markdown("✅ **Research Complete!**")
+                exported = export_report(report_text, topic=topic_input.strip(), output_dir=str(BASE_DIR / "reports"))
 
                 st.session_state["latest_report"] = report_text
                 st.session_state["exported_files"] = exported
                 st.session_state["topic_name"] = topic_input.strip()
+                st.session_state["chat_history"] = []
 
             except Exception as e:
+                status_box.update(label="❌ Execution Error", state="error", expanded=True)
                 st.error(f"Execution Error: {str(e)}")
 
-# Display Report if available
+
+# ==============================================================
+# DISPLAY REPORT & INTERACTIVE WORKBENCH
+# ==============================================================
 if "latest_report" in st.session_state:
     st.markdown("---")
-    st.subheader(f"📊 Research Report: {st.session_state.get('topic_name', '')}")
+    st.subheader(f"📊 Research Dossier: {st.session_state.get('topic_name', '')}")
 
     exported = st.session_state.get("exported_files", {})
-    tab1, tab2 = st.tabs(["📄 Formatted Markdown Report", "🌐 HTML Preview"])
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📄 Markdown Report",
+        "🌐 HTML Dashboard",
+        "💬 Chat with Report",
+        "🎧 Audio Podcast Briefing"
+    ])
 
+    # Tab 1: Formatted Markdown
     with tab1:
         st.markdown(st.session_state["latest_report"])
 
+    # Tab 2: HTML Preview
     with tab2:
         html_file = exported.get("html_file")
         if html_file and os.path.exists(html_file):
@@ -330,26 +465,101 @@ if "latest_report" in st.session_state:
                 html_content = f.read()
             st.components.v1.html(html_content, height=800, scrolling=True)
 
-    # Download Buttons
-    st.markdown("### 📥 Download Outputs")
-    dcol1, dcol2 = st.columns(2)
+    # Tab 3: Interactive Follow-up Q&A
+    with tab3:
+        st.markdown("#### 💬 Ask Follow-up Questions")
+        st.caption("Ask questions, request summaries, or drill into specific metrics grounded on the generated report.")
+
+        if "chat_history" not in st.session_state:
+            st.session_state["chat_history"] = []
+
+        # Display previous chat messages
+        for message in st.session_state["chat_history"]:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+        # Input prompt
+        user_query = st.chat_input("Ask anything about this research report...")
+        if user_query:
+            st.session_state["chat_history"].append({"role": "user", "content": user_query})
+            with st.chat_message("user"):
+                st.markdown(user_query)
+
+            with st.chat_message("assistant"):
+                with st.spinner("Analyzing report..."):
+                    answer = answer_report_query(user_query, st.session_state["latest_report"])
+                    st.markdown(answer)
+                    st.session_state["chat_history"].append({"role": "assistant", "content": answer})
+
+    # Tab 4: Audio Podcast Briefing
+    with tab4:
+        st.markdown("#### 🎧 Executive Audio Podcast Briefing")
+        st.caption("AI-generated voice briefing covering the Executive Summary and Key Takeaways.")
+
+        audio_file = exported.get("audio_file")
+        if audio_file and os.path.exists(audio_file):
+            st.audio(audio_file)
+            with open(audio_file, "rb") as af:
+                st.download_button(
+                    label="⬇️ Download Audio Brief (.mp3)",
+                    data=af.read(),
+                    file_name=Path(audio_file).name,
+                    mime="audio/mp3"
+                )
+        else:
+            st.info("Audio briefing generation is compiling or unavailable for this session.")
+
+    # Download Center
+    st.markdown("---")
+    st.markdown("### 📥 Publication Downloads")
+    dcol1, dcol2, dcol3, dcol4 = st.columns(4)
+
+    slug_name = st.session_state.get('topic_name', 'research').lower().replace(' ', '_')
+
     with dcol1:
         st.download_button(
-            label="⬇️ Download Markdown (.md)",
+            label="⬇️ Markdown (.md)",
             data=st.session_state["latest_report"],
-            file_name=f"report_{st.session_state.get('topic_name', 'research').lower().replace(' ', '_')}.md",
+            file_name=f"report_{slug_name}.md",
             mime="text/markdown",
             use_container_width=True
         )
+
     with dcol2:
         html_file = exported.get("html_file")
         if html_file and os.path.exists(html_file):
             with open(html_file, "r", encoding="utf-8") as f:
                 html_bytes = f.read()
             st.download_button(
-                label="⬇️ Download HTML Dashboard (.html)",
+                label="⬇️ HTML Dashboard (.html)",
                 data=html_bytes,
-                file_name=f"report_{st.session_state.get('topic_name', 'research').lower().replace(' ', '_')}.html",
+                file_name=f"report_{slug_name}.html",
                 mime="text/html",
+                use_container_width=True
+            )
+
+    with dcol3:
+        pdf_file = exported.get("pdf_file")
+        if pdf_file and os.path.exists(pdf_file):
+            with open(pdf_file, "rb") as pf:
+                pdf_bytes = pf.read()
+            st.download_button(
+                label="⬇️ PDF Document (.pdf)",
+                data=pdf_bytes,
+                file_name=f"report_{slug_name}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+
+    with dcol4:
+        audio_file = exported.get("audio_file")
+        if audio_file and os.path.exists(audio_file):
+            with open(audio_file, "rb") as af:
+                audio_bytes = af.read()
+            st.download_button(
+                label="⬇️ Audio Brief (.mp3)",
+                data=audio_bytes,
+                file_name=f"report_{slug_name}.mp3",
+                mime="audio/mp3",
                 use_container_width=True
             )
