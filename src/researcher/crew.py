@@ -1,4 +1,5 @@
-from crewai import Agent, Crew, Process, Task
+import os
+from crewai import Agent, Crew, Process, Task, LLM
 from crewai.project import CrewBase, agent, crew, task
 from crewai.agents.agent_builder.base_agent import BaseAgent
 from researcher.tools.search_tool import WebSearchTool
@@ -12,19 +13,40 @@ class Researcher():
     agents: list[BaseAgent]
     tasks: list[Task]
 
+    def _get_llm(self):
+        """Initializes Gemini LLM with robust fallback support."""
+        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        try:
+            from google import genai
+        except ImportError:
+            try:
+                import sys, subprocess
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "google-genai", "crewai[google-genai]"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+
+        try:
+            return LLM(model="gemini/gemini-2.5-flash", api_key=api_key)
+        except Exception:
+            try:
+                return LLM(model="google_ai/gemini-2.5-flash", api_key=api_key)
+            except Exception:
+                return "gemini/gemini-2.5-flash"
+
     @agent
     def researcher(self) -> Agent:
         return Agent(
             config=self.agents_config['researcher'],
             tools=[WebSearchTool(), PageScraperTool()],
+            llm=self._get_llm(),
             verbose=True
         )
-
 
     @agent
     def reporting_analyst(self) -> Agent:
         return Agent(
             config=self.agents_config['reporting_analyst'],
+            llm=self._get_llm(),
             verbose=True
         )
 
@@ -32,6 +54,7 @@ class Researcher():
     def fact_checker(self) -> Agent:
         return Agent(
             config=self.agents_config['fact_checker'],
+            llm=self._get_llm(),
             verbose=True
         )
 

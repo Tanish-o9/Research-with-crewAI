@@ -37,6 +37,39 @@ SRC_DIR = BASE_DIR / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+# Self-healing dependency check for Cloud deployments
+def _ensure_runtime_dependencies():
+    missing = []
+    try:
+        from google import genai
+    except ImportError:
+        missing.extend(["google-genai", "crewai[google-genai]"])
+    try:
+        import bs4
+    except ImportError:
+        missing.append("beautifulsoup4")
+    try:
+        import pypdf
+    except ImportError:
+        missing.append("pypdf")
+    try:
+        import reportlab
+    except ImportError:
+        missing.append("reportlab")
+    try:
+        import gtts
+    except ImportError:
+        missing.append("gTTS")
+
+    if missing:
+        import subprocess
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", *missing], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+
+_ensure_runtime_dependencies()
+
 load_dotenv()
 
 # Check Streamlit Cloud Secrets if available
