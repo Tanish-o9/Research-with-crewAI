@@ -7,8 +7,6 @@ researcher:
     You're an expert investigative researcher equipped with real-time web search
     and deep webpage content extraction capabilities. You track down credible sources, extract key statistics,
     read article contents deeply, and uncover the most recent and critical developments in {topic}.
-  llm: gemini/gemini-2.5-flash
-
 
 reporting_analyst:
   role: >
@@ -19,7 +17,6 @@ reporting_analyst:
     You're a meticulous analyst with a knack for turning technical and dense data
     into structured, easily digestible report chapters. You organize information logically
     with clear headings and detailed technical explanations.
-  llm: gemini/gemini-2.5-flash
 
 fact_checker:
   role: >
@@ -30,4 +27,3 @@ fact_checker:
     You're a seasoned editorial director and fact-checking lead. You ensure every finding
     is grounded in the research, eliminate repetition or hype, add an insightful
     Executive Summary at the beginning, and create an actionable Key Takeaways section.
-  llm: gemini/gemini-2.5-flash
