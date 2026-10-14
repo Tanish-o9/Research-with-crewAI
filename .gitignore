@@ -11,3 +11,7 @@ build/
 # Ignore generated output reports except .gitkeep
 reports/*
 !reports/.gitkeep
+
+# Ignore uv lock to allow standard Streamlit pip requirements deployment
+uv.lock
+

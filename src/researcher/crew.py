@@ -14,24 +14,9 @@ class Researcher():
     tasks: list[Task]
 
     def _get_llm(self):
-        """Initializes Gemini LLM with robust fallback support."""
+        """Initializes Gemini LLM."""
         api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-        try:
-            from google import genai
-        except ImportError:
-            try:
-                import sys, subprocess
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "google-genai", "crewai[google-genai]"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            except Exception:
-                pass
-
-        try:
-            return LLM(model="gemini/gemini-2.5-flash", api_key=api_key)
-        except Exception:
-            try:
-                return LLM(model="google_ai/gemini-2.5-flash", api_key=api_key)
-            except Exception:
-                return "gemini/gemini-2.5-flash"
+        return LLM(model="gemini/gemini-2.5-flash", api_key=api_key)
 
     @agent
     def researcher(self) -> Agent:
