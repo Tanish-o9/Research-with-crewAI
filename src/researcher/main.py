@@ -1,4 +1,22 @@
+import os
 import sys
+
+# Force UTF-8 environment and encoding globally on Windows
+os.environ["PYTHONIOENCODING"] = "utf-8"
+os.environ["PYTHONUTF8"] = "1"
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import warnings
 from pathlib import Path
 from datetime import datetime
@@ -8,8 +26,6 @@ from dotenv import load_dotenv
 src_dir = str(Path(__file__).resolve().parent.parent)
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
-
-import os
 
 load_dotenv()
 if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):

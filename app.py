@@ -1,11 +1,35 @@
 import os
 import sys
 import io
+import threading
 import contextlib
 from datetime import datetime
 from pathlib import Path
+
+# Force UTF-8 environment and encoding globally on Windows
+os.environ["PYTHONIOENCODING"] = "utf-8"
+os.environ["PYTHONUTF8"] = "1"
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import streamlit as st
 from dotenv import load_dotenv
+
+try:
+    from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+except Exception:
+    add_script_run_ctx = None
+    get_script_run_ctx = None
 
 # Ensure 'src' is accessible in sys.path
 BASE_DIR = Path(__file__).resolve().parent
@@ -14,6 +38,16 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 load_dotenv()
+
+# Check Streamlit Cloud Secrets if available
+try:
+    if hasattr(st, "secrets"):
+        for k in ["GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENROUTER_API_KEY"]:
+            if k in st.secrets and st.secrets[k]:
+                os.environ[k] = str(st.secrets[k])
+except Exception:
+    pass
+
 if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
     os.environ["GOOGLE_API_KEY"] = os.getenv("GEMINI_API_KEY")
 
@@ -110,22 +144,65 @@ st.markdown("""
 
 
 class LiveOutputRedirector:
-    """Redirects stdout to a real-time Streamlit log display."""
+    """Redirects stdout and stderr to a real-time Streamlit log display safely across worker threads."""
     def __init__(self, code_placeholder):
         self.code_placeholder = code_placeholder
         self.lines = []
         self._stdout = sys.stdout
+        self.encoding = "utf-8"
+        self.errors = "replace"
+        self.mode = "w"
+        self._lock = threading.Lock()
+        try:
+            self.ctx = get_script_run_ctx() if get_script_run_ctx else None
+        except Exception:
+            self.ctx = None
 
     def write(self, text):
-        self._stdout.write(text)
+        if not text:
+            return
+
+        # 1. Safely mirror to system console without charmap / cp1252 crash
+        try:
+            self._stdout.write(text)
+        except UnicodeEncodeError:
+            try:
+                enc = getattr(self._stdout, "encoding", "utf-8") or "utf-8"
+                safe_text = text.encode(enc, errors="replace").decode(enc)
+                self._stdout.write(safe_text)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        # 2. Safely capture text for Streamlit UI
         if text.strip():
-            self.lines.append(text)
-            # Display last 30 lines for smooth streaming
-            recent = "".join(self.lines[-30:])
-            self.code_placeholder.code(recent, language="bash")
+            with self._lock:
+                self.lines.append(text)
+                if len(self.lines) > 200:
+                    self.lines = self.lines[-100:]
+                recent = "".join(self.lines[-35:])
+
+            # 3. Safely update Streamlit UI, handling background threads
+            try:
+                if self.ctx and add_script_run_ctx and get_script_run_ctx and get_script_run_ctx() is None:
+                    try:
+                        add_script_run_ctx(threading.current_thread(), self.ctx)
+                    except Exception:
+                        pass
+                self.code_placeholder.code(recent, language="bash")
+            except Exception:
+                # Never let a UI streaming failure crash the agent / CrewAI pipeline!
+                pass
 
     def flush(self):
-        self._stdout.flush()
+        try:
+            self._stdout.flush()
+        except Exception:
+            pass
+
+    def isatty(self):
+        return False
 
 
 def answer_report_query(question: str, report_text: str) -> str:
@@ -182,7 +259,11 @@ USER QUESTION:
 with st.sidebar:
     st.title("⚙️ Controls & Status")
 
-    # API Key check
+    # Check session state for persistent API key input across reruns
+    if "custom_api_key" in st.session_state and st.session_state["custom_api_key"]:
+        os.environ["GEMINI_API_KEY"] = st.session_state["custom_api_key"].strip()
+        os.environ["GOOGLE_API_KEY"] = st.session_state["custom_api_key"].strip()
+
     gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     openrouter_key = os.getenv("OPENROUTER_API_KEY")
 
@@ -191,12 +272,17 @@ with st.sidebar:
     elif openrouter_key:
         st.success("✅ OpenRouter API Key Active")
     else:
-        st.warning("⚠️ No API Key found in .env")
-        custom_key = st.text_input("Enter Gemini API Key", type="password")
+        st.warning("⚠️ No API Key in Environment/Secrets")
+        custom_key = st.text_input(
+            "Enter Gemini API Key:",
+            type="password",
+            key="custom_api_key",
+            help="Get a free API key at https://aistudio.google.com"
+        )
         if custom_key:
-            os.environ["GEMINI_API_KEY"] = custom_key
-            os.environ["GOOGLE_API_KEY"] = custom_key
-            st.success("API Key updated for this session!")
+            os.environ["GEMINI_API_KEY"] = custom_key.strip()
+            os.environ["GOOGLE_API_KEY"] = custom_key.strip()
+            st.success("✅ API Key active for this session!")
 
     st.markdown("---")
     st.subheader("🎛️ Research Preferences")
@@ -418,8 +504,8 @@ if start_btn:
             redirector = LiveOutputRedirector(live_stream_placeholder)
 
             try:
-                # Run the crew and redirect stdout to live display
-                with contextlib.redirect_stdout(redirector):
+                # Run the crew and redirect stdout/stderr to live display
+                with contextlib.redirect_stdout(redirector), contextlib.redirect_stderr(redirector):
                     crew_instance = Researcher().crew()
                     result = crew_instance.kickoff(inputs=inputs)
 
